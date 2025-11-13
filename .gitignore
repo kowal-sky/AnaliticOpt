@@ -1,0 +1,7 @@
+__pycache__
+*.png
+CryoEvap/
+*.nb
+ammonia_large_720h_JAX.ipynb
+data_to_compare.ipynb
+analitic_opt.ipynb
