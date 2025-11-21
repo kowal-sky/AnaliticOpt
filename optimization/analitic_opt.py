@@ -142,55 +142,106 @@ class Tank:
         return -aa_m * (self.T_L - self.T_air) / (aa_p - aa_m)
 
 
-    # def delta_T_V0(self, LF0, a):
-    #     aux = np.pi*np.square(self.d_i(a)) / (4 * self.V_T * (1 - LF0))
-    #     xi_p = self.xi_p(LF0, a)
-    #     xi_m = self.xi_m(LF0, a)
+    def delta_T_V0_old(self, LF0, a): ## version original
 
-    #     return (
-    #         aux *
-    #         (
-    #             self.c1(LF0, a) / xi_p * (np.exp(xi_p / aux ) - 1) + 
-    #             self.c2(LF0, a) / xi_m * (np.exp(xi_m / aux ) - 1)
-    #         )
-         
-    #       )
-    
-    def delta_T_V0(self, LF0, a):
         l_v = self.l_v(LF0, a)
         xi_p = self.xi_p(LF0, a)
         xi_m = self.xi_m(LF0, a)
-
-        arg_p = xi_p * l_v
-        arg_m = xi_m * l_v
-
-        # if np.abs(arg_p) > 700:
-        #     exp_p = 2 * np.exp(arg_p / 2) * np.sinh(arg_p / 2) / xi_p
-        # else:
-        #     exp_p = (np.exp(arg_p ) - 1) / xi_p
-        exp_p = (np.exp(arg_p ) - 1) / xi_p
-
 
         return (
             -1 / l_v *
             (
                 self.c1(LF0, a) / xi_m * (np.exp(xi_m * l_v ) - 1) + 
-                self.c2(LF0, a) * exp_p
+                self.c2(LF0, a) / xi_p * (np.exp(xi_p * l_v ) - 1)
             )
          
           )
-        
-        # return (
-        #     -1 / l_v *
-        #     (
-        #         self.c1(LF0, a) / xi_m * (np.exp(xi_m * l_v ) - 1) + 
-        #         self.c2(LF0, a) / xi_p * (np.exp(xi_p * l_v ) - 1)
-        #     )
+    
+    # def delta_T_V0(self, LF0, a): # versión con intento de seno hiperbólico
+    #     l_v = self.l_v(LF0, a)
+    #     xi_p = self.xi_p(LF0, a)
+    #     xi_m = self.xi_m(LF0, a)
+
+    #     arg_p = xi_p * l_v
+    #     arg_m = xi_m * l_v
+
+    #     # if np.abs(arg_p) > 700:
+    #     #     exp_p = 2 * np.exp(arg_p / 2) * np.sinh(arg_p / 2) / xi_p
+    #     # else:
+    #     #     exp_p = (np.exp(arg_p ) - 1) / xi_p
+    #     exp_p = (np.exp(arg_p ) - 1) / xi_p
+
+
+    #     return (
+    #         -1 / l_v *
+    #         (
+    #             self.c1(LF0, a) / xi_m * (np.exp(xi_m * l_v ) - 1) + 
+    #             self.c2(LF0, a) * exp_p
+    #         )
          
-        #   )
+    #       )
+
+    def delta_T_V0(self, LF0, a):
+        
+        l_v = self.l_v(LF0, a)
+        H = self.H(LF0, a)
+        k_v_avg = self.k_V_avg
+        # en esta expresion u = \sqrt(H^2 - 4k_v_avg * S)
+        S = self.S(a)
+        u = np.sqrt(np.square(H) + 4 * k_v_avg * S)
+
+        # variable para exponencial positiva dependiente de u
+        exppu = np.exp(u * l_v / (2 * k_v_avg))
+        # variable para exponencial negativa dependiente de u
+        expnu = np.exp(-u * l_v / (2 * k_v_avg))
+
+        # variable para exponencial positiva dependiente de H
+        exppH = np.exp(H * l_v / (2 * k_v_avg))
+
+        if H * l_v / (2 * k_v_avg) > 700:
+            return(
+                2 * (self.T_L - self.T_air) / (l_v * S) * 
+                (H * u * (np.exp(-l_v * S / (H+u)) - 0.5) - (np.square(H) + 2  * k_v_avg * S) / 2) / 
+                (H + u)
+
+            )
+
+
+
+        return (2 * (self.T_L - self.T_air) / (l_v * S) * 
+                (H * u * (exppH - expnu / 2 - exppu / 2) + (np.square(H) + 2 * k_v_avg * S) / 2 * (expnu - exppu)) / 
+                (-H * (expnu - exppu) + u * (expnu + exppu))
+
+        )
     
-    # separar en  aux ara ver que parte explota
-    
+    # def delta_T_V0(self, LF0, a): #! está MALAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAaaaaaaaaaaaaaaaaaaaaaaaa
+    #     H = self.H(LF0,a)
+    #     k_V_avg = self.k_V_avg
+    #     return (
+
+    #         (self.T_air - self.T_L) / self.l_v(LF0, a) * 
+    #         (np.exp(H / k_V_avg) / (self.aa_p(LF0, a) - self.aa_m(LF0, a)) * (np.sqrt(np.square(H) + 4 * k_V_avg * self.S(a)) / k_V_avg) - 1)
+
+    #     )
+
+    # def delta_T_V0(self, LF0, a): ## 2nd numerical fix #! AAAAAAAAAAAAAAAAAAAAA erroneo
+
+    #     l_v = self.l_v(LF0, a)
+    #     xi_p = self.xi_p(LF0, a)
+    #     xi_m = self.xi_m(LF0, a)
+
+    #     # primero chequear aproximaciones numéricas en caso de ser necesarias
+    #     if xi_p * l_v > 700:
+    #         return -(self.T_air - self.T_L) / (xi_p * l_v)
+    #     elif xi_m * l_v > 700:
+    #         return -(self.T_air - self.T_L) / (xi_m * l_v)
+
+    #     # fórmula exacta si no hay ningun error numérico
+    #     else:
+    #         exp_p = np.exp(xi_p * l_v)
+    #         exp_m = np.exp(xi_m * l_v)
+    #         return (self.T_air - self.T_L) / l_v * (exp_m - exp_p) / (xi_p * exp_p - xi_m * exp_m)
+
     def delta_T_V0_1(self, LF0, a):
         return self.c1(LF0, a) / self.xi_m(LF0, a) * (np.exp(self.xi_m(LF0, a) * self.l_v(LF0, a) ) - 1)
 
